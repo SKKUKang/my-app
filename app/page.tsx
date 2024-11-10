@@ -18,6 +18,7 @@ export default function Home() {
       });
 
       const data = await response.json();
+      console.log("Received data:", data);
       setOutput(data.result); // 파이썬에서 반환한 결과
     } catch (error) {
       console.error("Error:", error);
