@@ -8,17 +8,16 @@ def extract_numbers(style):
     height = int(height_match.group(1)) if height_match else None
     top = int(top_match.group(1)) if top_match else None
     
-    startTime = top/50
-    hours = (height-1)//50
-    beforeminutes = height-(hours*50+1)
-    minutematching = {0:0,4:5,8:10,13:15,17:20,21:25,25:30,29:35,33:40,38:45,42:50,46:55}
-    matchedminute = minutematching[beforeminutes]
-    duration = hours*60+matchedminute
-    endTime = "계산하기 귀찮다!"
-
-    
-
-    return startTime, duration,endTime
+    startTimeHour = (top//50)
+    startTimeminute= ((top%50)//4)*5
+    startTime=startTimeHour*100 + startTimeminute
+    duringhour = (height-1)//50
+    duringminute = ((height-(duringhour*50+1))//4)*5
+    carry = (duringminute + startTimeminute)//60
+    endTimeHour=startTimeHour+duringhour+carry
+    endTimeminute=(startTimeminute+duringminute)%60
+    endTime=endTimeHour*100+endTimeminute
+    return startTime,endTime
 
 def processing(json_data):
     # 각 json_data에서 객체의 2번째 값인 시간:style을 추출하여 다른 형태로 변형하기
@@ -26,8 +25,11 @@ def processing(json_data):
     a = 0
     for subject in json_data:
         style = subject.get("시간", "No style attribute")  # 시간:style
-        startTime, duration,endTime = extract_numbers(style)
-        result.append("시작시간: {0}, 걸리는 시간:{1}분, 끝나는 시간: {2}".format(startTime, duration,endTime))
+        startTime,endTime = extract_numbers(style)
+        day = subject.get("요일", "No day")
+        course_name = subject.get("과목명", "No course name")
+        classroom = subject.get("강의실", "No classroom")
+        result.append([day, course_name, startTime, endTime, classroom])
     return result
 
 # 4px 5분

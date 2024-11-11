@@ -29,24 +29,24 @@ def crawl_subject_texts(url):
     soup = BeautifulSoup(page_source, 'html.parser', from_encoding='utf-8')
     soup.encoding = 'utf-8'
     tablebody = soup.find(class_='tablebody')
-    days={0:"월", 1:"화", 2:"수", 3:"목", 4:"금"}   
+    days={0:"월", 1:"화", 2:"수", 3:"목", 4:"금",5:"토",6:"일"}   
     subject_data = []
     if tablebody:
         tds = tablebody.find_all('td')
-        for i in range(0, 5):
+        for i in range(0, 7):
             
             classes = tds[i].find_all(class_='subject')
             for lesson in classes:
                 day=days[i]
                 style = lesson.get('style', 'No style attribute')
                 h3_text = lesson.find('h3').get_text(strip=True) if lesson.find('h3') else 'No h3 element'
-                em_text = lesson.find('em').get_text(strip=True) if lesson.find('em') else 'No em element'
+                #em_text = lesson.find('em').get_text(strip=True) if lesson.find('em') else 'No em element'
                 span_text = lesson.find('span').get_text(strip=True) if lesson.find('span') else 'No span element'
                 subject_data.append({
                     "요일": day,
                     "시간": style,
                     "과목명": h3_text,
-                    "교수": em_text,
+                    #"교수": em_text,
                     "강의실": span_text
                 })
     else:
@@ -58,6 +58,4 @@ if __name__ == "__main__":
     url = sys.argv[1]
     crawl_result = crawl_subject_texts(url)
     process_result = processing(crawl_result)
-    print(json.dumps({
-        "process_result": process_result
-    }, ensure_ascii=False))
+    print(process_result)
