@@ -16,16 +16,16 @@ class TimetableExtractor:
 
         # 색상 범위 정의(HSV)
         self.color_ranges = {
-            "파랑": ([100, 100, 100], [130, 255, 255]),     
-            "보라": ([130, 100, 100], [160, 255, 255]),      
-            "주황": ([10, 100, 150], [19, 255, 255]),         
-            "연두": ([40, 100, 100], [70, 255, 255]),        
-            "빨강": ([0, 100, 100], [9, 255, 255]),         
-            "노랑": ([20, 100, 100], [39, 255, 255]),        
-            "청록": ([80, 100, 100], [100, 255, 255])  
+            "파랑": ([100, 100, 100], [130, 255, 255]),
+            "보라": ([130, 100, 100], [160, 255, 255]),
+            "주황": ([10, 100, 150], [19, 255, 255]),
+            "연두": ([40, 100, 100], [70, 255, 255]),
+            "빨강": ([0, 100, 100], [9, 255, 255]),
+            "노랑": ([20, 100, 100], [39, 255, 255]),
+            "청록": ([80, 100, 100], [100, 255, 255])
         }
 
-        self.result = [] #최종 데이터 저장 리스트
+        self.result = []  # 최종 데이터 저장 리스트
         self.time_dict = {}  # 시간 매핑 딕셔너리
 
     # 각 색상 윤곽 추출 함수
@@ -51,14 +51,7 @@ class TimetableExtractor:
                 # 일정 크기 이상일 때만 잘라냄 (작은 잡음 제거)
                 if w > 50 and h > 50:
                     cropped_image = self.image_file[y:y+h, x:x+w]
-                    self.cropped_images[self.days[int(x/self.width*5)]].append([Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)), y, y+h]) # int(x/widht*5)로 x값에 따라 들어갈 요일을 결정
-
-    def show_extracted_images(self):
-        # 추출된 이미지 보여주기
-        for day in self.days:
-            for i, (image, _,_) in enumerate(self.cropped_images[day]):
-                print(self.cropped_images[day][i][2])
-                #image.show()
+                    self.cropped_images[self.days[int(x/self.width*5)]].append([Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)), y, y+h]) 
 
     # 이미지에서 시간 당 픽셀 구하는 함수
     def get_pixel_per_hour(self):
@@ -76,12 +69,12 @@ class TimetableExtractor:
         count = 0
         time_y_positions = []
         for i, text in enumerate(text_data['text']):
-            if text.strip().isdigit() and int(text) >= 9 and int(text) <= 12 and count < 2:  #좌표 얻기
+            if text.strip().isdigit() and int(text) >= 9 and int(text) <= 12 and count < 2:  # 좌표 얻기
                 time_y_positions.append(text_data['top'][i])
                 count+=1
 
         return abs(time_y_positions[1]-time_y_positions[0]), time_y_positions[0]
-    
+
     # 타임 딕셔너리에 데이터 추가 함수
     def get_time_dictionary(self):
         # 픽셀 당 시간 변환 비율과 시작 픽셀 위치 가져오기
@@ -122,18 +115,17 @@ class TimetableExtractor:
                 # 강의명 추출 (이미지 전처리) -> 인식률 높이기 위해 개선 필요
                 # 이미지를 흑백으로 변환
                 gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-                
+
                 # 텍스트 강조: 흰색 텍스트를 검은 배경으로 반전
                 _, inverted = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
 
                 # OCR 수행 (한국어 인식 활성화)
                 text = pytesseract.image_to_string(inverted, config='--psm 6 -l kor').strip()
-                
+
                 # 가장 가까운 시작 시간 및 종료 시간 찾기
                 start_y = min(self.time_dict.keys(), key=lambda key: abs(key - y))
                 end_y = min(self.time_dict.keys(), key=lambda key: abs(key - y_end))
-                
-                # 시작 시간과 종료 시간을 문자열로
+
                 start_time = self.time_dict[start_y]
                 end_time = self.time_dict[end_y]
 
@@ -151,9 +143,16 @@ class TimetableExtractor:
                 # 각 요일별로 시작/종료 시간과 강의명 추가
                 self.result.append([day, course_name, start_time, end_time, course_number])
 
-test = TimetableExtractor('../images/timetable.jpg')
-test.getlectrue()
-#test.show_extracted_images()
-test.get_time_dictionary()
-test.save_lecture_data()
-print(test.result)
+        return self.result
+
+# 이미지를 처리하고 결과 반환
+def process_image(image_path):
+    extractor = TimetableExtractor(image_path)
+    extractor.getlectrue()
+    extractor.get_time_dictionary()
+    return extractor.save_lecture_data()
+
+# 예시 실행
+if __name__ == "__main__":
+    result = process_image('../images/timetable.jpg')
+    print(result)

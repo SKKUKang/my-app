@@ -11,6 +11,7 @@ const TimetableAnalyzer = () => {
   const [progress, setProgress] = useState(0);
   const [urlInput, setUrlInput] = useState("");
   const [output, setOutput] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +21,34 @@ const TimetableAnalyzer = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: urlInput }),
+        body: JSON.stringify({ type: "url", input: urlInput }),
+      });
+
+      const data = await response.json();
+      setOutput(data.result);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleFileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("type", "file");
+
+    try {
+      const response = await fetch("/api/process", {
+        method: "POST",
+        body: formData,
       });
 
       const data = await response.json();
@@ -45,9 +73,16 @@ const TimetableAnalyzer = () => {
             </div>
             <h2 className="text-xl font-semibold">이미지 업로드</h2>
             <p className="text-gray-600 text-center">시간표 이미지를 직접 업로드해주세요</p>
-            <Button className="w-full">
-              이미지 선택하기
-            </Button>
+            <form onSubmit={handleFileSubmit} className="w-full">
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="w-full p-2 border rounded mb-4"
+              />
+              <Button type="submit" className="w-full">
+                이미지 업로드하기
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
