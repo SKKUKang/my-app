@@ -54,6 +54,7 @@ export async function POST(request: Request) {
             const filePath = file.filepath;
 
             // Run the Python script
+            console.log("Running OCR script...");
             const python = spawn("python", ["python/ocr.py", filePath]);
 
             let result = "";

@@ -153,9 +153,11 @@ class TimetableExtractor:
 # 이미지를 처리하고 결과 반환
 def process_image(image_path):
     try:
+        print("Processing image:", image_path)
         extractor = TimetableExtractor(image_path)
         extractor.getlectrue()
         extractor.get_time_dictionary()
+        print("Extracting lecture data...")
         return extractor.save_lecture_data()
     except Exception as e:
         return {"error": str(e)}
@@ -163,6 +165,7 @@ def process_image(image_path):
 # 예시 실행
 if __name__ == "__main__":
     try:
+        print("Hello")
         result = process_image('../images/timetable.jpg')
         print(result)
     except Exception as e:
