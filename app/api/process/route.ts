@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import formidable, { File } from "formidable";
-import { Readable } from "stream";
+import { Readable } from "stream"; // Use Node.js Readable stream
 
-export const runtime = "nodejs"; // `edge` 대신 `nodejs`로 설정
+export const runtime = "nodejs"; // Use `nodejs` runtime instead of `edge`
 
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
@@ -12,25 +12,30 @@ export async function POST(request: Request) {
     const form = formidable({ uploadDir: "./uploads", keepExtensions: true });
 
     return new Promise((resolve, reject) => {
-      // Next.js Request 객체를 ReadableStream에서 Buffer로 변환
       const reader = request.body?.getReader();
       const chunks: Uint8Array[] = [];
 
+      // Function to read chunks from the ReadableStream and form the complete buffer
       function processText({ done, value }: ReadableStreamReadResult<Uint8Array>) {
         if (done) {
-          // 모든 데이터를 읽은 후 버퍼를 생성하고, 스트림으로 변환하여 formidable에 전달
           const buffer = Buffer.concat(chunks);
-          const stream = new Readable();
-          stream.push(buffer);
-          stream.push(null); // 스트림 종료
 
-          // Headers 설정
-          stream.headers = {
-            'content-length': buffer.length.toString(), // content-length 명시적으로 설정
-            'content-type': contentType, // 기존의 content-type 유지
+          // Create a custom Readable stream that mimics IncomingMessage
+          const stream = new Readable();
+          stream.push(buffer); // Push the buffer to the stream
+          stream.push(null); // Signal the end of the stream
+
+          // Create an IncomingMessage-like object
+          const incomingMessage = new Readable() as any;
+          incomingMessage.push(buffer);
+          incomingMessage.push(null);
+          incomingMessage.headers = {
+            "content-length": buffer.length.toString(),
+            "content-type": contentType,
           };
 
-          form.parse(stream, (err, fields, files) => {
+          // Parse the form data with formidable
+          form.parse(incomingMessage, (err, fields, files) => {
             if (err) {
               reject(
                 NextResponse.json({ error: "File upload error" }, { status: 500 })
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
 
             const filePath = file.filepath;
 
-            // 파이썬 스크립트 실행
+            // Run the Python script
             const python = spawn("python", ["python/ocr.py", filePath]);
 
             let result = "";
@@ -56,22 +61,17 @@ export async function POST(request: Request) {
             python.stdout.on("data", (data) => {
               const text = data.toString("utf-8");
               result += text;
-              console.log("Python stdout data:", text);
             });
 
             python.stderr.on("data", (data) => {
               const text = data.toString("utf-8");
               errorOutput += text;
-              console.error("Python stderr:", text);
             });
 
             python.on("close", (code) => {
               if (code === 0) {
                 resolve(
-                  NextResponse.json(
-                    { result: result.trim() },
-                    { status: 200 }
-                  )
+                  NextResponse.json({ result: result.trim() }, { status: 200 })
                 );
               } else {
                 reject(
@@ -85,16 +85,18 @@ export async function POST(request: Request) {
           });
           return;
         }
+
         if (value) {
-          chunks.push(value);
+          chunks.push(value); // Collect the chunks
         }
-        reader?.read().then(processText);
+
+        reader?.read().then(processText); // Continue reading the stream
       }
 
-      reader?.read().then(processText);
+      reader?.read().then(processText); // Start reading from the stream
     });
   } else {
-    // URL 처리
+    // Handle URL case if not a file upload
     const { type, input } = await request.json();
 
     if (type === "url") {
@@ -106,13 +108,11 @@ export async function POST(request: Request) {
         python.stdout.on("data", (data) => {
           const text = data.toString("utf-8");
           result += text;
-          console.log("Python stdout data:", text);
         });
 
         python.stderr.on("data", (data) => {
           const text = data.toString("utf-8");
           errorOutput += text;
-          console.error("Python stderr:", text);
         });
 
         python.on("close", (code) => {
