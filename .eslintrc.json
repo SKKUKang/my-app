@@ -1,3 +1,11 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "off", // `any` 사용 허용
+    "@typescript-eslint/no-require-imports": "off", // require() 허용
+    "@typescript-eslint/no-unused-vars": [
+      "warn", // 사용하지 않는 변수에 대해 경고만 표시
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" } // `_`로 시작하는 변수는 무시
+    ]
+  }
 }
