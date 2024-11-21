@@ -1,78 +1,97 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
-import { Formidable, File } from "formidable";
-import { IncomingMessage } from "http";
-import fs from "fs";
-import path from "path";
+import formidable, { File } from "formidable";
+import { Readable } from "stream";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const runtime = "nodejs"; // `edge` 대신 `nodejs`로 설정
 
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("multipart/form-data")) {
-    // 이미지 업로드 처리
-    const form = new Formidable({ uploadDir: "./uploads", keepExtensions: true });
+    const form = formidable({ uploadDir: "./uploads", keepExtensions: true });
 
     return new Promise((resolve, reject) => {
-      // Next.js Request 객체를 IncomingMessage로 변환
-      const req = request as unknown as IncomingMessage;
+      // Next.js Request 객체를 ReadableStream에서 Buffer로 변환
+      const reader = request.body?.getReader();
+      const chunks: Uint8Array[] = [];
 
-      form.parse(req, (err, fields, files) => {
-        if (err) {
-          reject(
-            new NextResponse(
-              JSON.stringify({ error: "File upload error" }),
-              {
-                status: 500,
-                headers: { "Content-Type": "application/json; charset=utf-8" },
+      function processText({ done, value }: ReadableStreamReadResult<Uint8Array>) {
+        if (done) {
+          // 모든 데이터를 읽은 후 버퍼를 생성하고, 스트림으로 변환하여 formidable에 전달
+          const buffer = Buffer.concat(chunks);
+          const stream = new Readable();
+          stream.push(buffer);
+          stream.push(null); // 스트림 종료
+
+          // Headers 설정
+          stream.headers = {
+            'content-length': buffer.length.toString(), // content-length 명시적으로 설정
+            'content-type': contentType, // 기존의 content-type 유지
+          };
+
+          form.parse(stream, (err, fields, files) => {
+            if (err) {
+              reject(
+                NextResponse.json({ error: "File upload error" }, { status: 500 })
+              );
+              return;
+            }
+
+            const file = files.file?.[0] as File;
+            if (!file) {
+              reject(
+                NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+              );
+              return;
+            }
+
+            const filePath = file.filepath;
+
+            // 파이썬 스크립트 실행
+            const python = spawn("python", ["python/ocr.py", filePath]);
+
+            let result = "";
+            let errorOutput = "";
+            python.stdout.on("data", (data) => {
+              const text = data.toString("utf-8");
+              result += text;
+              console.log("Python stdout data:", text);
+            });
+
+            python.stderr.on("data", (data) => {
+              const text = data.toString("utf-8");
+              errorOutput += text;
+              console.error("Python stderr:", text);
+            });
+
+            python.on("close", (code) => {
+              if (code === 0) {
+                resolve(
+                  NextResponse.json(
+                    { result: result.trim() },
+                    { status: 200 }
+                  )
+                );
+              } else {
+                reject(
+                  NextResponse.json(
+                    { error: "Python script execution error", details: errorOutput },
+                    { status: 500 }
+                  )
+                );
               }
-            )
-          );
+            });
+          });
           return;
         }
+        if (value) {
+          chunks.push(value);
+        }
+        reader?.read().then(processText);
+      }
 
-        const file = files.file as File;
-        const filePath = file.filepath;
-
-        // 파이썬 스크립트 실행
-        const python = spawn("python", ["python/ocr.py", filePath]);
-
-        let result = "";
-        python.stdout.on("data", (data) => {
-          const text = data.toString("utf-8");
-          result += text;
-        });
-
-        python.stderr.on("data", (data) => {
-          console.error("Python stderr:", data.toString("utf-8"));
-        });
-
-        python.on("close", (code) => {
-          if (code === 0) {
-            resolve(
-              new NextResponse(JSON.stringify({ result: result.trim() }), {
-                status: 200,
-                headers: { "Content-Type": "application/json; charset=utf-8" },
-              })
-            );
-          } else {
-            reject(
-              new NextResponse(
-                JSON.stringify({ error: "Python script execution error" }),
-                {
-                  status: 500,
-                  headers: { "Content-Type": "application/json; charset=utf-8" },
-                }
-              )
-            );
-          }
-        });
-      });
+      reader?.read().then(processText);
     });
   } else {
     // URL 처리
@@ -80,50 +99,41 @@ export async function POST(request: Request) {
 
     if (type === "url") {
       return new Promise((resolve, reject) => {
-        // 파이썬 스크립트 실행
-        console.log("Python script is starting with input:", input); // 입력 값 확인 로그
-
         const python = spawn("python", ["python/webcroll.py", input]);
 
         let result = "";
+        let errorOutput = "";
         python.stdout.on("data", (data) => {
           const text = data.toString("utf-8");
           result += text;
-          console.log("Python stdout data:", text); // Python stdout 로그
+          console.log("Python stdout data:", text);
         });
 
         python.stderr.on("data", (data) => {
-          console.error("Python stderr:", data.toString("utf-8")); // Python 에러 로그
+          const text = data.toString("utf-8");
+          errorOutput += text;
+          console.error("Python stderr:", text);
         });
 
         python.on("close", (code) => {
           if (code === 0) {
             resolve(
-              new NextResponse(JSON.stringify({ result: result.trim() }), {
-                status: 200,
-                headers: { "Content-Type": "application/json; charset=utf-8" },
-              })
+              NextResponse.json({ result: result.trim() }, { status: 200 })
             );
           } else {
             reject(
-              new NextResponse(
-                JSON.stringify({ error: "Python script execution error" }),
-                {
-                  status: 500,
-                  headers: { "Content-Type": "application/json; charset=utf-8" },
-                }
+              NextResponse.json(
+                { error: "Python script execution error", details: errorOutput },
+                { status: 500 }
               )
             );
           }
         });
       });
     } else {
-      return new NextResponse(
-        JSON.stringify({ error: "Invalid request type" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json; charset=utf-8" },
-        }
+      return NextResponse.json(
+        { error: "Invalid request type" },
+        { status: 400 }
       );
     }
   }

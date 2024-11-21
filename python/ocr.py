@@ -8,6 +8,8 @@ class TimetableExtractor:
     def __init__(self, image_file):
         # 시간표 이미지
         self.image_file = cv2.imread(image_file)
+        if self.image_file is None:
+            raise ValueError(f"이미지를 불러올 수 없습니다: {image_file}")
         self.width = self.image_file.shape[1]
 
         # 요일별로 이미지를 저장할 딕셔너리
@@ -71,7 +73,10 @@ class TimetableExtractor:
         for i, text in enumerate(text_data['text']):
             if text.strip().isdigit() and int(text) >= 9 and int(text) <= 12 and count < 2:  # 좌표 얻기
                 time_y_positions.append(text_data['top'][i])
-                count+=1
+                count += 1
+
+        if len(time_y_positions) < 2:
+            raise ValueError("시간 텍스트를 충분히 찾을 수 없습니다.")
 
         return abs(time_y_positions[1]-time_y_positions[0]), time_y_positions[0]
 
@@ -147,12 +152,18 @@ class TimetableExtractor:
 
 # 이미지를 처리하고 결과 반환
 def process_image(image_path):
-    extractor = TimetableExtractor(image_path)
-    extractor.getlectrue()
-    extractor.get_time_dictionary()
-    return extractor.save_lecture_data()
+    try:
+        extractor = TimetableExtractor(image_path)
+        extractor.getlectrue()
+        extractor.get_time_dictionary()
+        return extractor.save_lecture_data()
+    except Exception as e:
+        return {"error": str(e)}
 
 # 예시 실행
 if __name__ == "__main__":
-    result = process_image('../images/timetable.jpg')
-    print(result)
+    try:
+        result = process_image('../images/timetable.jpg')
+        print(result)
+    except Exception as e:
+        print(f"Error: {e}")
