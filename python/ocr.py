@@ -1,13 +1,46 @@
 import cv2
 import numpy as np
-from PIL import Image
 import pytesseract
+import sys
 import re
+import os
+
+
+
+# Ensure you're using OpenCV to read image data from stdin
+def process_image_from_stdin():
+    try:
+        # Read the image data from stdin as binary
+        image_data = sys.stdin.buffer.read()  # Use .buffer to get raw bytes
+
+        # Convert the byte data to a numpy array
+        nparr = np.frombuffer(image_data, np.uint8)
+
+        # Decode the image using OpenCV
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if image is None:
+            raise ValueError("이미지를 읽을 수 없습니다. 이미지 형식이 올바르지 않거나 손상되었습니다.")
+
+        # Process the image (your existing image processing logic)
+        print("Processing image...")
+
+        # Call your existing image processing function (you can move this code to another function if needed)
+        extractor = TimetableExtractor(image)
+        extractor.getlectrue()
+        extractor.get_time_dictionary()
+        result = extractor.save_lecture_data()
+
+        return result
+
+    except Exception as e:
+        print(f"Error processing image: {e}", file=sys.stderr)
+        return {"error": str(e)}
 
 class TimetableExtractor:
     def __init__(self, image_file):
         # 시간표 이미지
-        self.image_file = cv2.imread(image_file)
+        self.image_file = image_file
         if self.image_file is None:
             raise ValueError(f"이미지를 불러올 수 없습니다: {image_file}")
         self.width = self.image_file.shape[1]
@@ -30,7 +63,6 @@ class TimetableExtractor:
         self.result = []  # 최종 데이터 저장 리스트
         self.time_dict = {}  # 시간 매핑 딕셔너리
 
-    # 각 색상 윤곽 추출 함수
     def getlectrue(self):
         hsv = cv2.cvtColor(self.image_file, cv2.COLOR_BGR2HSV)
 
@@ -53,9 +85,8 @@ class TimetableExtractor:
                 # 일정 크기 이상일 때만 잘라냄 (작은 잡음 제거)
                 if w > 50 and h > 50:
                     cropped_image = self.image_file[y:y+h, x:x+w]
-                    self.cropped_images[self.days[int(x/self.width*5)]].append([Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)), y, y+h]) 
+                    self.cropped_images[self.days[int(x/self.width*5)]].append([cropped_image, y, y+h]) 
 
-    # 이미지에서 시간 당 픽셀 구하는 함수
     def get_pixel_per_hour(self):
         left_image = self.image_file[:,:int(self.width*0.1)]
 
@@ -67,11 +98,10 @@ class TimetableExtractor:
         custom_config = r'--oem 3 --psm 6'
         text_data = pytesseract.image_to_data(thresh, config=custom_config, output_type=pytesseract.Output.DICT)
 
-        # y 좌표로 정렬된 시간 텍스트의 위치 찾기(예외처리 필요)
         count = 0
         time_y_positions = []
         for i, text in enumerate(text_data['text']):
-            if text.strip().isdigit() and int(text) >= 9 and int(text) <= 12 and count < 2:  # 좌표 얻기
+            if text.strip().isdigit() and int(text) >= 9 and int(text) <= 12 and count < 2:
                 time_y_positions.append(text_data['top'][i])
                 count += 1
 
@@ -80,17 +110,13 @@ class TimetableExtractor:
 
         return abs(time_y_positions[1]-time_y_positions[0]), time_y_positions[0]
 
-    # 타임 딕셔너리에 데이터 추가 함수
     def get_time_dictionary(self):
-        # 픽셀 당 시간 변환 비율과 시작 픽셀 위치 가져오기
         pixel_per_hour, start_y_position = self.get_pixel_per_hour()
 
-        # 1시간당 픽셀 수를 기준으로 15분 간격 시간값 계산
         time_interval = 15  # 15분 간격
         intervals_per_hour = 60 // time_interval
         pixels_per_interval = pixel_per_hour / intervals_per_hour
 
-        # 시간 계산
         current_y_position = start_y_position
         current_hour = 9
         current_minute = 0
@@ -105,68 +131,42 @@ class TimetableExtractor:
                 current_minute = 0
                 current_hour += 1
 
-            # 다음 y 위치
             current_y_position += pixels_per_interval
 
-    # 각 요일에 대해 강의 시작/종료 시간과 강의명 저장
     def save_lecture_data(self):
-        # 시간 변환 딕셔너리가 비어 있으면 생성
         if not self.time_dict:
             self.get_time_dictionary()
 
-        # 각 요일에 대해 강의 시작/종료 시간 저장
         for day in self.days:
             for image, y, y_end in self.cropped_images[day]:
-                # 강의명 추출 (이미지 전처리) -> 인식률 높이기 위해 개선 필요
-                # 이미지를 흑백으로 변환
-                gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-
-                # 텍스트 강조: 흰색 텍스트를 검은 배경으로 반전
+                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
                 _, inverted = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-
-                # OCR 수행 (한국어 인식 활성화)
                 text = pytesseract.image_to_string(inverted, config='--psm 6 -l kor').strip()
 
-                # 가장 가까운 시작 시간 및 종료 시간 찾기
                 start_y = min(self.time_dict.keys(), key=lambda key: abs(key - y))
                 end_y = min(self.time_dict.keys(), key=lambda key: abs(key - y_end))
 
                 start_time = self.time_dict[start_y]
                 end_time = self.time_dict[end_y]
 
-                text = text.replace('\n','')
-                text = text.replace(' ','')
-                match = re.search(r'\d',text)
-
+                text = text.replace('\n','').replace(' ','')
                 course_name = text
                 course_number = ''
 
+                match = re.search(r'\d', text)
                 if match:
-                    course_name = text[:match.start()]  # 숫자 이전 부분
-                    course_number = text[match.start():]  # 숫자 이후 부분
+                    course_name = text[:match.start()]
+                    course_number = text[match.start():]
 
-                # 각 요일별로 시작/종료 시간과 강의명 추가
                 self.result.append([day, course_name, start_time, end_time, course_number])
 
         return self.result
 
-# 이미지를 처리하고 결과 반환
-def process_image(image_path):
-    try:
-        print("Processing image:", image_path)
-        extractor = TimetableExtractor(image_path)
-        extractor.getlectrue()
-        extractor.get_time_dictionary()
-        print("Extracting lecture data...")
-        return extractor.save_lecture_data()
-    except Exception as e:
-        return {"error": str(e)}
 
-# 예시 실행
 if __name__ == "__main__":
     try:
-        print("Hello")
-        result = process_image('../images/timetable.jpg')
+        result = process_image_from_stdin()
         print(result)
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error processing image: {e}", file=sys.stderr)
+        print({"error": str(e)})

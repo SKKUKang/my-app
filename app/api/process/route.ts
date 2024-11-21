@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("multipart/form-data")) {
-    const form = formidable({ uploadDir: "./uploads", keepExtensions: true });
+    const form = formidable({ keepExtensions: true });
 
     return new Promise((resolve, reject) => {
       const reader = request.body?.getReader();
@@ -51,11 +51,16 @@ export async function POST(request: Request) {
               return;
             }
 
-            const filePath = file.filepath;
+            const fs = require('fs');
+            const fileBuffer = fs.readFileSync(file.filepath); // 버퍼로 받은 파일
 
-            // Run the Python script
+            // Run the Python script with the image buffer
             console.log("Running OCR script...");
-            const python = spawn("python", ["python/ocr.py", filePath]);
+            const python = spawn("python", ["python/ocr.py"]);
+
+            // Python 스크립트에 이미지 버퍼 전달
+            python.stdin.write(fileBuffer);  // 파일 버퍼를 stdin으로 전달
+            python.stdin.end();
 
             let result = "";
             let errorOutput = "";
