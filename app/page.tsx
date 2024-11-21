@@ -7,8 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, Link, Share2, Download, Clock } from "lucide-react";
 
 const TimetableAnalyzer = () => {
-  const [stage, setStage] = useState('initial'); // initial, survey, result
-  const [progress, setProgress] = useState(0);
+  const [stage, _setStage] = useState('initial'); // initial, survey, result
+  const [progress, _setProgress] = useState(0);
   const [urlInput, setUrlInput] = useState("");
   const [output, setOutput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -62,7 +62,7 @@ const TimetableAnalyzer = () => {
     <div className="w-full max-w-4xl mx-auto p-6">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">나의 시간표 분석하기</h1>
-        <p className="text-lg text-gray-600">당신의 시간표를 업로드하고 AI 분석을 받아보세요</p>
+        <p className="text-lg text-gray-600">당신의 시간표를 업로드하고 분석을 받아보세요</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

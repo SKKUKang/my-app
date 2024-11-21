@@ -1,31 +1,28 @@
 import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import formidable, { File } from "formidable";
-import { Readable } from "stream"; // Use Node.js Readable stream
+import { Readable } from "stream";
 
-export const runtime = "nodejs"; // Use `nodejs` runtime instead of `edge`
+export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("multipart/form-data")) {
     const form = formidable({ keepExtensions: true });
 
-    return new Promise((resolve, reject) => {
+    return new Promise<Response>((resolve) => {
       const reader = request.body?.getReader();
       const chunks: Uint8Array[] = [];
 
-      // Function to read chunks from the ReadableStream and form the complete buffer
       function processText({ done, value }: ReadableStreamReadResult<Uint8Array>) {
         if (done) {
           const buffer = Buffer.concat(chunks);
 
-          // Create a custom Readable stream that mimics IncomingMessage
           const stream = new Readable();
-          stream.push(buffer); // Push the buffer to the stream
-          stream.push(null); // Signal the end of the stream
+          stream.push(buffer);
+          stream.push(null);
 
-          // Create an IncomingMessage-like object
           const incomingMessage = new Readable() as any;
           incomingMessage.push(buffer);
           incomingMessage.push(null);
@@ -34,55 +31,61 @@ export async function POST(request: Request) {
             "content-type": contentType,
           };
 
-          // Parse the form data with formidable
           form.parse(incomingMessage, (err, fields, files) => {
             if (err) {
-              reject(
-                NextResponse.json({ error: "File upload error" }, { status: 500 })
+              resolve(
+                NextResponse.json(
+                  { error: "File upload error" },
+                  { status: 500 }
+                )
               );
               return;
             }
 
             const file = files.file?.[0] as File;
             if (!file) {
-              reject(
-                NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+              resolve(
+                NextResponse.json(
+                  { error: "No file uploaded" },
+                  { status: 400 }
+                )
               );
               return;
             }
 
-            const fs = require('fs');
-            const fileBuffer = fs.readFileSync(file.filepath); // 버퍼로 받은 파일
+            const fs = require("fs");
+            const fileBuffer = fs.readFileSync(file.filepath);
 
-            // Run the Python script with the image buffer
-            console.log("Running OCR script...");
             const python = spawn("python", ["python/ocr.py"]);
-
-            // Python 스크립트에 이미지 버퍼 전달
-            python.stdin.write(fileBuffer);  // 파일 버퍼를 stdin으로 전달
+            python.stdin.write(fileBuffer);
             python.stdin.end();
 
             let result = "";
             let errorOutput = "";
+
             python.stdout.on("data", (data) => {
-              const text = data.toString("utf-8");
-              result += text;
+              result += data.toString("utf-8");
             });
 
             python.stderr.on("data", (data) => {
-              const text = data.toString("utf-8");
-              errorOutput += text;
+              errorOutput += data.toString("utf-8");
             });
 
             python.on("close", (code) => {
               if (code === 0) {
                 resolve(
-                  NextResponse.json({ result: result.trim() }, { status: 200 })
+                  NextResponse.json(
+                    { result: result.trim() },
+                    { status: 200 }
+                  )
                 );
               } else {
-                reject(
+                resolve(
                   NextResponse.json(
-                    { error: "Python script execution error", details: errorOutput },
+                    {
+                      error: "Python script execution error",
+                      details: errorOutput,
+                    },
                     { status: 500 }
                   )
                 );
@@ -93,43 +96,47 @@ export async function POST(request: Request) {
         }
 
         if (value) {
-          chunks.push(value); // Collect the chunks
+          chunks.push(value);
         }
 
-        reader?.read().then(processText); // Continue reading the stream
+        reader?.read().then(processText);
       }
 
-      reader?.read().then(processText); // Start reading from the stream
+      reader?.read().then(processText);
     });
   } else {
-    // Handle URL case if not a file upload
     const { type, input } = await request.json();
 
     if (type === "url") {
-      return new Promise((resolve, reject) => {
+      return new Promise<Response>((resolve) => {
         const python = spawn("python", ["python/webcroll.py", input]);
 
         let result = "";
         let errorOutput = "";
+
         python.stdout.on("data", (data) => {
-          const text = data.toString("utf-8");
-          result += text;
+          result += data.toString("utf-8");
         });
 
         python.stderr.on("data", (data) => {
-          const text = data.toString("utf-8");
-          errorOutput += text;
+          errorOutput += data.toString("utf-8");
         });
 
         python.on("close", (code) => {
           if (code === 0) {
             resolve(
-              NextResponse.json({ result: result.trim() }, { status: 200 })
+              NextResponse.json(
+                { result: result.trim() },
+                { status: 200 }
+              )
             );
           } else {
-            reject(
+            resolve(
               NextResponse.json(
-                { error: "Python script execution error", details: errorOutput },
+                {
+                  error: "Python script execution error",
+                  details: errorOutput,
+                },
                 { status: 500 }
               )
             );
