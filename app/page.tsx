@@ -120,6 +120,12 @@ const TimetableAnalyzer = () => {
       setIsLoading(false);
     }
   };
+  
+  
+  const isSurveyComplete = () => {
+    return Object.values(surveyAnswers).every(answer => answer !== '');
+  };
+
 
   const renderInitialStage = () => (
     <div className="w-full max-w-4xl mx-auto p-6">
@@ -214,7 +220,7 @@ const TimetableAnalyzer = () => {
           onChange={handleSurveyChange}
         />
 
-        <Button onClick={handleSurveySubmit} className="w-full" disabled={isLoading}>
+        <Button onClick={handleSurveySubmit} className="w-full" disabled={!isSurveyComplete()}>
           설문 제출하기
         </Button>
       </div>
