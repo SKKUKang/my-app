@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, Link, Clock } from "lucide-react";
+import SurveyQuestion from '@/components/ui/SurveyQuestion'; // 새로 만든 설문 컴포넌트
 
 const TimetableAnalyzer = () => {
   const [stage, _setStage] = useState('initial'); // 'initial', 'survey', 'result'
@@ -20,7 +21,6 @@ const TimetableAnalyzer = () => {
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!urlInput.startsWith("https://everytime.kr/@")) {
       alert("잘못된 URL입니다. 시간표 URL을 입력해주세요.");
       return;
@@ -190,122 +190,29 @@ const TimetableAnalyzer = () => {
 
       {/* 설문 문제들 */}
       <div className="space-y-6">
-        <div>
-          <h3 className="text-xl font-semibold mb-2">1. 당신의 수업을 어떻게 평가하시나요?</h3>
-          <div className="space-y-2">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="satisfaction"
-                value="good"
-                checked={surveyAnswers.satisfaction === 'good'}
-                onChange={() => handleSurveyChange('satisfaction', 'good')}
-                className="mr-2"
-              />
-              좋음
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="satisfaction"
-                value="average"
-                checked={surveyAnswers.satisfaction === 'average'}
-                onChange={() => handleSurveyChange('satisfaction', 'average')}
-                className="mr-2"
-              />
-              보통
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="satisfaction"
-                value="bad"
-                checked={surveyAnswers.satisfaction === 'bad'}
-                onChange={() => handleSurveyChange('satisfaction', 'bad')}
-                className="mr-2"
-              />
-              나쁨
-            </label>
-          </div>
-        </div>
+        <SurveyQuestion
+          question="1. 당신의 수업을 어떻게 평가하시나요?"
+          name="satisfaction"
+          options={['좋음', '보통', '나쁨']}
+          selectedValue={surveyAnswers.satisfaction}
+          onChange={handleSurveyChange}
+        />
 
-        <div>
-          <h3 className="text-xl font-semibold mb-2">2. 수업 난이도는 어떤가요?</h3>
-          <div className="space-y-2">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="difficulty"
-                value="easy"
-                checked={surveyAnswers.difficulty === 'easy'}
-                onChange={() => handleSurveyChange('difficulty', 'easy')}
-                className="mr-2"
-              />
-              쉬움
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="difficulty"
-                value="medium"
-                checked={surveyAnswers.difficulty === 'medium'}
-                onChange={() => handleSurveyChange('difficulty', 'medium')}
-                className="mr-2"
-              />
-              보통
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="difficulty"
-                value="hard"
-                checked={surveyAnswers.difficulty === 'hard'}
-                onChange={() => handleSurveyChange('difficulty', 'hard')}
-                className="mr-2"
-              />
-              어려움
-            </label>
-          </div>
-        </div>
+        <SurveyQuestion
+          question="2. 수업 난이도는 어떤가요?"
+          name="difficulty"
+          options={['쉬움', '보통', '어려움']}
+          selectedValue={surveyAnswers.difficulty}
+          onChange={handleSurveyChange}
+        />
 
-        <div>
-          <h3 className="text-xl font-semibold mb-2">3. 수업에서 어떤 것이 가장 중요하나요?</h3>
-          <div className="space-y-2">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="preference"
-                value="content"
-                checked={surveyAnswers.preference === 'content'}
-                onChange={() => handleSurveyChange('preference', 'content')}
-                className="mr-2"
-              />
-              내용
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="preference"
-                value="interaction"
-                checked={surveyAnswers.preference === 'interaction'}
-                onChange={() => handleSurveyChange('preference', 'interaction')}
-                className="mr-2"
-              />
-              상호작용
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="preference"
-                value="assessment"
-                checked={surveyAnswers.preference === 'assessment'}
-                onChange={() => handleSurveyChange('preference', 'assessment')}
-                className="mr-2"
-              />
-              평가
-            </label>
-          </div>
-        </div>
+        <SurveyQuestion
+          question="3. 수업에서 어떤 것이 가장 중요하나요?"
+          name="preference"
+          options={['내용', '상호작용', '평가']}
+          selectedValue={surveyAnswers.preference}
+          onChange={handleSurveyChange}
+        />
 
         <Button onClick={handleSurveySubmit} className="w-full" disabled={isLoading}>
           설문 제출하기
@@ -319,7 +226,7 @@ const TimetableAnalyzer = () => {
       <div className="text-center mb-12">
         <h2 className="text-2xl font-semibold mb-4">분석 결과</h2>
         {resultData ? (
-          <pre className="whitespace-pre-wrap">{JSON.stringify(resultData, null, 2)}</pre>
+          <p className="whitespace-pre-wrap">{JSON.stringify(resultData, null, 2)}</p>
         ) : (
           <p>결과를 불러오는 중...</p>
         )}
