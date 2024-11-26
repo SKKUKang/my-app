@@ -96,7 +96,8 @@ const TimetableAnalyzer = () => {
 
   const handleSurveySubmit = async () => {
     setIsLoading(true);
-
+    _setStage('waiting'); // 대기 페이지로 전환
+  
     // 설문 데이터를 서버에 전송
     try {
       const response = await fetch("http://localhost:8000/api/survey", {
@@ -104,7 +105,7 @@ const TimetableAnalyzer = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surveyAnswers, requestId })
       });
-
+  
       const data = await response.json();
       if (data.status === "success") {
         // 설문 제출 후 결과를 가져옴
@@ -123,6 +124,8 @@ const TimetableAnalyzer = () => {
       setIsLoading(false);
     }
   };
+  
+  
   
   
   const isSurveyComplete = () => {
@@ -230,6 +233,22 @@ const TimetableAnalyzer = () => {
     </div>
   );
 
+  const renderWaitingStage = () => (
+    <div className="w-full max-w-4xl mx-auto p-6">
+      <div className="text-center mb-12">
+        <h2 className="text-3xl font-semibold text-blue-600 mb-4">잠시만 기다려 주세요</h2>
+        <div className="flex justify-center items-center mb-4">
+          {/* 로딩 아이콘 추가 */}
+          <div className="w-10 h-10 border-t-4 border-blue-600 border-solid rounded-full animate-spin"></div>
+        </div>
+        <p className="text-xl text-gray-600 mb-6">서버에서 결과를 처리하는 중입니다...</p>
+        <p className="text-lg text-gray-500">약 30초 정도 소요될 수 있습니다.</p>
+        <p className="text-sm text-gray-400">잠시 후 결과를 확인할 수 있습니다. 너무 오래 기다리시면 새로 고침해 주세요.</p>
+      </div>
+    </div>
+  );
+  
+
   const renderResultStage = () => (
     <div className="w-full max-w-4xl mx-auto p-6">
       <div className="text-center mb-12">
@@ -246,6 +265,7 @@ const TimetableAnalyzer = () => {
   if (stage === 'initial') return renderInitialStage();
   if (stage === 'survey') return renderSurveyStage();
   if (stage === 'result') return renderResultStage();
+  if (stage === 'waiting') return renderWaitingStage();
 
   return null;
 };
