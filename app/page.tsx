@@ -18,6 +18,8 @@ const TimetableAnalyzer = () => {
     preference: ''
   });
   const [resultData, setResultData] = useState(null); // 설문 결과 및 분석 데이터
+  const [requestId] = useState(() => Math.random().toString(36).substring(2)); // 요청 ID 생성 (한 번만)
+
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ const TimetableAnalyzer = () => {
       const response = await fetch("http://localhost:8000/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlInput }),
+        body: JSON.stringify({ url: urlInput, requestId }),
       });
 
       const data = await response.json();
@@ -64,6 +66,7 @@ const TimetableAnalyzer = () => {
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    formData.append("requestId", requestId);
 
     try {
       const response = await fetch("http://localhost:8000/api/process", {
@@ -99,13 +102,13 @@ const TimetableAnalyzer = () => {
       const response = await fetch("http://localhost:8000/api/survey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surveyAnswers })
+        body: JSON.stringify({ surveyAnswers, requestId })
       });
 
       const data = await response.json();
       if (data.status === "success") {
         // 설문 제출 후 결과를 가져옴
-        const resultResponse = await fetch("http://localhost:8000/api/result");
+        const resultResponse = await fetch(`http://localhost:8000/api/result?requestId=${requestId}`);
         const resultData = await resultResponse.json();
         if (resultData.status === "success") {
           setResultData(resultData.data);  // 결과 데이터를 저장
