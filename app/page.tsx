@@ -12,13 +12,33 @@ const TimetableAnalyzer = () => {
   const [output, setOutput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false); // 서버 응답 대기 상태
-  const [surveyAnswers, setSurveyAnswers] = useState({
+  const [surveyAnswers, setSurveyAnswers] = useState<{ [key: string]: string }>({
+    nickname:'',
     satisfaction: '',
     difficulty: '',
     preference: ''
   });
   const [resultData, setResultData] = useState(null); // 설문 결과 및 분석 데이터
   const [requestId] = useState(() => Math.random().toString(36).substring(2)); // 요청 ID 생성 (한 번만)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1); // 현재 질문의 인덱스
+  const [nickname, setNickname] = useState(""); // 닉네임 상태 추가
+  const surveyQuestions = [
+    {
+      question: "1. 당신의 수업을 어떻게 평가하시나요?",
+      name: "satisfaction",
+      options: ['좋음', '보통', '나쁨']
+    },
+    {
+      question: "2. 수업 난이도는 어떤가요?",
+      name: "difficulty",
+      options: ['쉬움', '보통', '어려움']
+    },
+    {
+      question: "3. 수업에서 어떤 것이 가장 중요하나요?",
+      name: "preference",
+      options: ['내용', '상호작용', '평가']
+    }
+  ];
 
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
@@ -193,45 +213,67 @@ const TimetableAnalyzer = () => {
     </div>
   );
 
-  const renderSurveyStage = () => (
-    <div className="w-full max-w-4xl mx-auto p-6">
-      <div className="text-center mb-12">
-        <h2 className="text-2xl font-semibold mb-4">설문조사</h2>
-        <p>설문조사를 완료하고 분석 결과를 확인하세요.</p>
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < surveyQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      handleSurveySubmit();
+    }
+  };
+
+  const renderSurveyStage = () => {
+    const currentQuestion = surveyQuestions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === surveyQuestions.length - 1;
+  
+    return (
+      <div className="w-full max-w-4xl mx-auto p-6">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl font-semibold mb-4">설문조사</h2>
+          <p>설문조사를 완료하고 분석 결과를 확인하세요.</p>
+        </div>
+  
+        {/* 닉네임 입력 */}
+        {currentQuestionIndex === -1 ? (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold mb-2">닉네임을 입력해주세요</h3>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => {
+                  const newNickname = e.target.value;
+                  setNickname(newNickname);
+                  setSurveyAnswers(prev => ({
+                    ...prev,
+                    nickname: newNickname,
+                  }));
+                }}
+                className="w-full p-2 border rounded mb-4"
+                placeholder="닉네임"
+              />
+            </div>
+            <Button onClick={handleNextQuestion} className="w-full" disabled={!nickname}>
+              다음
+            </Button>
+          </div>
+
+        ) : (
+          <div className="space-y-6">
+            <SurveyQuestion
+              question={currentQuestion.question}
+              name={currentQuestion.name}
+              options={currentQuestion.options}
+              selectedValue={surveyAnswers[currentQuestion.name]}
+              onChange={handleSurveyChange}
+            />
+            <Button onClick={handleNextQuestion} className="w-full" disabled={!surveyAnswers[currentQuestion.name]}>
+              {isLastQuestion ? "제출" : "다음"}
+            </Button>
+          </div>
+        )}
       </div>
-
-      {/* 설문 문제들 */}
-      <div className="space-y-6">
-        <SurveyQuestion
-          question="1. 당신의 수업을 어떻게 평가하시나요?"
-          name="satisfaction"
-          options={['좋음', '보통', '나쁨']}
-          selectedValue={surveyAnswers.satisfaction}
-          onChange={handleSurveyChange}
-        />
-
-        <SurveyQuestion
-          question="2. 수업 난이도는 어떤가요?"
-          name="difficulty"
-          options={['쉬움', '보통', '어려움']}
-          selectedValue={surveyAnswers.difficulty}
-          onChange={handleSurveyChange}
-        />
-
-        <SurveyQuestion
-          question="3. 수업에서 어떤 것이 가장 중요하나요?"
-          name="preference"
-          options={['내용', '상호작용', '평가']}
-          selectedValue={surveyAnswers.preference}
-          onChange={handleSurveyChange}
-        />
-
-        <Button onClick={handleSurveySubmit} className="w-full" disabled={!isSurveyComplete()}>
-          설문 제출하기
-        </Button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderWaitingStage = () => (
     <div className="w-full max-w-4xl mx-auto p-6">
@@ -252,16 +294,17 @@ const TimetableAnalyzer = () => {
   const renderResultStage = () => (
     <div className="w-full max-w-4xl mx-auto p-6">
       <div className="text-center mb-12">
-        <h2 className="text-2xl font-semibold mb-4">분석 결과</h2>
+        <h2 className="text-2xl font-semibold mb-4"><span className="text-blue-600">{nickname}</span>님의 시간표 분석 결과</h2>
         {resultData ? (
-          <p className="whitespace-pre-wrap">{JSON.stringify(resultData, null, 2)}</p>
+          <>
+            <p className="whitespace-pre-wrap">{JSON.stringify(resultData, null, 2)}</p>
+          </>
         ) : (
           <p>결과를 불러오는 중...</p>
         )}
       </div>
     </div>
   );
-
   if (stage === 'initial') return renderInitialStage();
   if (stage === 'survey') return renderSurveyStage();
   if (stage === 'result') return renderResultStage();
