@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Upload, Link, Clock } from "lucide-react";
 import SurveyQuestion from '@/components/ui/SurveyQuestion'; // 새로 만든 설문 컴포넌트
@@ -16,9 +17,9 @@ const TimetableAnalyzer = () => {
     nickname:'',
     satisfaction: '',
     difficulty: '',
-    preference: ''
+    preference: '',
   });
-  const [resultData, setResultData] = useState(null); // 설문 결과 및 분석 데이터
+  const [resultData, setResultData] = useState<any>(); // 설문 결과 및 분석 데이터
   const [requestId] = useState(() => Math.random().toString(36).substring(2)); // 요청 ID 생성 (한 번만)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1); // 현재 질문의 인덱스
   const [nickname, setNickname] = useState(""); // 닉네임 상태 추가
@@ -40,6 +41,8 @@ const TimetableAnalyzer = () => {
     }
   ];
 
+  const backendUrl = "http://127.0.0.1:8080";
+  //const backendUrl= "https://algo-timetable.du.r.appspot.com";
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +55,11 @@ const TimetableAnalyzer = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/process", {
+      const response = await fetch(`${backendUrl}/api/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: urlInput, requestId }),
+        mode: 'cors', // CORS 모드 설정
       });
 
       const data = await response.json();
@@ -89,9 +93,10 @@ const TimetableAnalyzer = () => {
     formData.append("requestId", requestId);
 
     try {
-      const response = await fetch("http://localhost:8000/api/process", {
+      const response = await fetch(`${backendUrl}/api/process`, {
         method: "POST",
         body: formData,
+        mode: 'cors', // CORS 모드 설정
       });
 
       const data = await response.json();
@@ -120,23 +125,24 @@ const TimetableAnalyzer = () => {
   
     // 설문 데이터를 서버에 전송
     try {
-      const response = await fetch("http://localhost:8000/api/survey", {
+      const response = await fetch(`${backendUrl}/api/survey`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surveyAnswers, requestId })
+        body: JSON.stringify({ surveyAnswers, requestId }),
+          mode: 'cors', // CORS 모드 설정
       });
   
       const data = await response.json();
       if (data.status === "success") {
         // 설문 제출 후 결과를 가져옴
-        const resultResponse = await fetch(`http://localhost:8000/api/result?requestId=${requestId}`);
+        const resultResponse = await fetch(`${backendUrl}/api/result?requestId=${requestId}`);
         const resultData = await resultResponse.json();
         if (resultData.status === "success") {
           setResultData(resultData.data);  // 결과 데이터를 저장
           _setStage('result');  // 결과 화면으로 전환
         }
       } else {
-        console.error("Survey submission failed:", data.message);
+        console.error("Survey submission failed:", data);
       }
     } catch (error) {
       console.error("Error:", error);
@@ -297,7 +303,26 @@ const TimetableAnalyzer = () => {
         <h2 className="text-2xl font-semibold mb-4"><span className="text-blue-600">{nickname}</span>님의 시간표 분석 결과</h2>
         {resultData ? (
           <>
-            <p className="whitespace-pre-wrap">{JSON.stringify(resultData, null, 2)}</p>
+          <p className="text-blue-600 text-2xl">당신의 시간표 점수는 ? {resultData.etc[0]}점</p>
+          <p className="text-gray-500 mb-6">다른 사람들은 평균적으로 50점을 기록했어요. </p>
+           {/* 점수 표시하는 부분 */}
+
+          <p className="text-red-600">고득점 시간표 시간대 추천!</p>
+          <p className="text-red-600 mb-6">{resultData.etc[1][0]}요일 {(resultData.etc[1][1]-resultData.etc[1][1]%100)/100}시{resultData.etc[1][1]%100}분 ~ {(resultData.etc[1][2]-resultData.etc[1][2]%100)/100}시 {resultData.etc[1][2]%100}분</p>
+          {/* 추천하는 시간표가 있는 부분 */}
+          <p></p>
+          <p className="text-green-600">당신의 시간표 유형은?</p>
+          <p className="text-green-900 font-bold">{resultData.etc[2]}</p>
+          <p className="text-green-600">당신의 시간표 유형에 대한 설명 어쩌구 저쩌구</p>
+          <img src={`/${resultData.etc[2]}.png`} alt="시간표 유형 이미지"  className="max-w-xs mx-auto mb-6" />
+          <p></p>
+
+          {/* 시간표 유형을 표시하는 부분 */}
+          <p className="text-blue-600">시간표 분석 결과</p>
+            {resultData.analysis.map((item: string, index: number) => (
+              <p key={index} className="whitespace-pre-wrap">{item[0]} {item[1]} {item[2]}</p>
+            ))}
+
           </>
         ) : (
           <p>결과를 불러오는 중...</p>
