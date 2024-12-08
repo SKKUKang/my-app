@@ -15,9 +15,9 @@ const TimetableAnalyzer = () => {
   const [isLoading, setIsLoading] = useState(false); // 서버 응답 대기 상태
   const [surveyAnswers, setSurveyAnswers] = useState<{ [key: string]: string }>({
     nickname:'',
-    satisfaction: '',
-    difficulty: '',
-    preference: '',
+    first: '',
+    second: '',
+    third: '',
   });
   const [resultData, setResultData] = useState<any>(); // 설문 결과 및 분석 데이터
   const [requestId] = useState(() => Math.random().toString(36).substring(2)); // 요청 ID 생성 (한 번만)
@@ -25,21 +25,33 @@ const TimetableAnalyzer = () => {
   const [nickname, setNickname] = useState(""); // 닉네임 상태 추가
   const surveyQuestions = [
     {
-      question: "1. 당신의 수업을 어떻게 평가하시나요?",
-      name: "satisfaction",
-      options: ['좋음', '보통', '나쁨']
+      question: "1. 시간표에서 가장 중요한 것이 무엇인가요?",
+      name: "first",
+      options: ['아침 수업이 없는 것', '점심 시간 확보', '저녁 수업 최소화', '건물 간 동선 최소화', '연강 최소화', '공강일 개수']
     },
     {
-      question: "2. 수업 난이도는 어떤가요?",
-      name: "difficulty",
-      options: ['쉬움', '보통', '어려움']
+      question: "2. 시간표에서 두 번째로 중요한 것이 무엇인가요?",
+      name: "second",
+      options: ['아침 수업이 없는 것', '점심 시간 확보', '저녁 수업 최소화', '건물 간 동선 최소화', '연강 최소화', '공강일 개수']
     },
     {
-      question: "3. 수업에서 어떤 것이 가장 중요하나요?",
-      name: "preference",
-      options: ['내용', '상호작용', '평가']
+      question: "3. 시간표에서 가장 상관 없는 것이 무엇인가요?",
+      name: "third",
+      options: ['아침 수업이 없는 것', '점심 시간 확보', '저녁 수업 최소화', '건물 간 동선 최소화', '연강 최소화', '공강일 개수']
     }
   ];
+
+  const dictionary: { [key: string]: string } = {
+  "아침형 인간": "또 1교시라니... 닭보다 먼저 일어나 하루를 여는 캠퍼스의 아침 요정 🌅.",
+  "저녁형 인간": "인간 야광 스티커. 오후에 살아나는 캠퍼스 야행성 🌙.",
+  "베짱이": "동기들이 휴학한 줄 알고 있어요. 개구리마저 부러워하는 여유만만 강의 스케줄 🐸.",
+  "공강마스터": "공강은 신이야..! 시간표계의 은둔 고수 🏝️.",
+  "건물여행자": "어디로 가야하오... 캠퍼스 투어 다니는 강의실 방랑자 🚶‍♂️🏫.",
+  "연강마스터": "밥 먹을 틈도 없다! 몰아치는 강의 스케줄러 ⚡.",
+  "마라토너": "수업듣다 기말까지 끝낼기세..! 시간표를 뛰어넘는 마라톤 수업 완주자 🏃‍♀️.",
+  "오후만출근족": "아침수업? 그게 뭐죠? 캠퍼스의 오후 전용 노동자 ☕."
+  
+  }
 
   const backendUrl = "http://127.0.0.1:8080";
   //const backendUrl= "https://algo-timetable.du.r.appspot.com";
@@ -59,7 +71,7 @@ const TimetableAnalyzer = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: urlInput, requestId }),
-        mode: 'cors', // CORS 모드 설정
+
       });
 
       const data = await response.json();
@@ -96,7 +108,7 @@ const TimetableAnalyzer = () => {
       const response = await fetch(`${backendUrl}/api/process`, {
         method: "POST",
         body: formData,
-        mode: 'cors', // CORS 모드 설정
+
       });
 
       const data = await response.json();
@@ -119,6 +131,16 @@ const TimetableAnalyzer = () => {
     }));
   };
 
+  const getFilteredOptions = (questionName: string) => {
+    const selectedValues = Object.entries(surveyAnswers)
+      .filter(([key, value]) => key !== questionName && value !== '')
+      .map(([, value]) => value);
+  
+    return surveyQuestions
+      .find((q) => q.name === questionName)
+      ?.options.filter((option) => !selectedValues.includes(option)) || [];
+  };
+
   const handleSurveySubmit = async () => {
     setIsLoading(true);
     _setStage('waiting'); // 대기 페이지로 전환
@@ -129,7 +151,7 @@ const TimetableAnalyzer = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surveyAnswers, requestId }),
-          mode: 'cors', // CORS 모드 설정
+
       });
   
       const data = await response.json();
@@ -268,7 +290,7 @@ const TimetableAnalyzer = () => {
             <SurveyQuestion
               question={currentQuestion.question}
               name={currentQuestion.name}
-              options={currentQuestion.options}
+              options={getFilteredOptions(currentQuestion.name)} 
               selectedValue={surveyAnswers[currentQuestion.name]}
               onChange={handleSurveyChange}
             />
@@ -303,26 +325,31 @@ const TimetableAnalyzer = () => {
         <h2 className="text-2xl font-semibold mb-4"><span className="text-blue-600">{nickname}</span>님의 시간표 분석 결과</h2>
         {resultData ? (
           <>
-          <p className="text-blue-600 text-2xl">당신의 시간표 점수는 ? {resultData.etc[0]}점</p>
-          <p className="text-gray-500 mb-6">다른 사람들은 평균적으로 50점을 기록했어요. </p>
+          <p className="text-blue-600 text-2xl">당신의 시간표 점수는 ? <p className="font-bold">{resultData.etc[0]}점</p></p>
+          <p className="text-gray-500 mb-6">50점 이상이면 좋은 시간표에요. </p>
            {/* 점수 표시하는 부분 */}
 
-          <p className="text-red-600">고득점 시간표 시간대 추천!</p>
-          <p className="text-red-600 mb-6">{resultData.etc[1][0]}요일 {(resultData.etc[1][1]-resultData.etc[1][1]%100)/100}시{resultData.etc[1][1]%100}분 ~ {(resultData.etc[1][2]-resultData.etc[1][2]%100)/100}시 {resultData.etc[1][2]%100}분</p>
+          <p className="text-red-600">만약 과목 하나를 추가한다면.. 이 시간대가 가장 점수가 높게 나오겠네요!</p>
+          <p className="text-red-600 mb-6 text-xl font-bold">{resultData.etc[1][0]}요일 {(resultData.etc[1][1]-resultData.etc[1][1]%100)/100}시{resultData.etc[1][1]%100 == 0 ? "00": resultData.etc[1][1]%100}분 ~ {(resultData.etc[1][2]-resultData.etc[1][2]%100)/100}시 {resultData.etc[1][2]%100 == 0 ? "00": resultData.etc[1][2]%100}분</p>
           {/* 추천하는 시간표가 있는 부분 */}
           <p></p>
           <p className="text-green-600">당신의 시간표 유형은?</p>
-          <p className="text-green-900 font-bold">{resultData.etc[2]}</p>
-          <p className="text-green-600">당신의 시간표 유형에 대한 설명 어쩌구 저쩌구</p>
-          <img src={`/${resultData.etc[2]}.png`} alt="시간표 유형 이미지"  className="max-w-xs mx-auto mb-6" />
+          <p className="text-green-900 font-bold text-2xl">{resultData.etc[2]}</p>
+          <p className="text-green-600 text-xl font-bold">{dictionary[resultData.etc[2]]}</p>
+          <img src={`/${resultData.etc[2]}.png`} alt="시간표 유형 이미지"  className="max-w-xs mx-auto mb-6 rounded-[20px]" />
           <p></p>
 
           {/* 시간표 유형을 표시하는 부분 */}
-          <p className="text-blue-600">시간표 분석 결과</p>
+          <div className = "bg-white p-6 rounded-lg shadow-md shadow-lg border-4">
+          <p className="text-blue-600 text-xl font-bold">시간표 분석 결과</p>
             {resultData.analysis.map((item: string, index: number) => (
-              <p key={index} className="whitespace-pre-wrap">{item[0]} {item[1]} {item[2]}</p>
+              <div className = "bg-white p-6 rounded-lg shadow-md shadow-lg border-2">
+                <p key={index} className="whitespace-pre-wrap">
+                {item[0]}요일 {item[2].toString().slice(0, -2)}시 {item[2].toString().slice(-2)}분 ~  {item[3].toString().slice(0, -2)}시 {item[3].toString().slice(-2)}분 : {item[1]}
+                </p>
+              </div>
             ))}
-
+          </div>
           </>
         ) : (
           <p>결과를 불러오는 중...</p>
